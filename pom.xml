@@ -9,51 +9,51 @@
     <relativePath/>
   </parent>
   <groupId>gigi.dan2011.gmail.com</groupId>
-  <artifactId>clean-architecture</artifactId>
+  <artifactId>atlas-32</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <packaging>pom</packaging>
-  <name>clean-architecture</name>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>atlas-32-boot</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>atlas-32-domain</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>atlas-32-usecases</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>atlas-32-infrastructure</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <description>Library for music</description>
 
   <inceptionYear>2022</inceptionYear>
-  <organization>
-    <name>clean-architecture</name>
-  </organization>
   <modules>
-    <module>clean-architecture-domain</module>
-    <module>clean-architecture-usecases</module>
-    <module>clean-architecture-infrastructure</module>
-    <module>clean-architecture-boot</module>
+    <module>atlas-32-domain</module>
+    <module>atlas-32-usecases</module>
+    <module>atlas-32-infrastructure</module>
+    <module>atlas-32-boot</module>
   </modules>
+  <name>atlas-32</name>
 
   <properties>
     <java.version>17</java.version>
   </properties>
 
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>${project.groupId}</groupId>
-        <artifactId>clean-architecture-boot</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>${project.groupId}</groupId>
-        <artifactId>clean-architecture-domain</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>${project.groupId}</groupId>
-        <artifactId>clean-architecture-usecases</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>${project.groupId}</groupId>
-        <artifactId>clean-architecture-infrastructure</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
+  <organization>
+    <name>atlas-32</name>
+  </organization>
   <dependencies/>
 
   <repositories/>

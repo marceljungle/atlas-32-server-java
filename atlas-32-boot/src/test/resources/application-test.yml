@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: atlas-32
+
+logging:
+  level:
+    root: INFO

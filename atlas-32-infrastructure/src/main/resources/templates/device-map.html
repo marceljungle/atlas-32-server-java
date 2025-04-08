@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <title>Device Map</title>
+  <meta charset="UTF-8" />
+</head>
+<body>
+<h1>Device Map for <span th:text="${deviceId}"></span></h1>
+
+<!-- Button to request coordinates -->
+<button id="btnRequestCoords">Request Coordinates</button>
+
+<!-- Button to create a new API key -->
+<button onclick="window.location.href='/admin/api-keys/new';">
+  Configure New API Key
+</button>
+
+<!-- Button to use an existing API key (goes to the list of keys) -->
+<button onclick="window.location.href='/admin/api-keys/list';">
+  Use Existing API Key
+</button>
+
+<!-- Div where the map will be shown -->
+<div id="map" style="width: 600px; height: 400px;"></div>
+
+<script th:inline="javascript">
+  /*<![CDATA[*/
+  // Retrieve deviceId passed from the model
+  let deviceId = /*[[${deviceId}]]*/ '123'; //TODO: Change this to the actual device ID
+
+  // Function to request coordinates from the server (POST)
+  function requestCoords() {
+    fetch("/api/device/" + deviceId + "/request-coords", {
+      method: "POST"
+    }).then(response => {
+      if (!response.ok) {
+        console.error("Error requesting coords", response);
+      } else {
+        console.log("Requested coords for device " + deviceId);
+      }
+    });
+  }
+
+  // Function to read the latest location (GET)
+  function updateLocation() {
+    fetch("/api/device/" + deviceId + "/location")
+    .then(resp => resp.json())
+    .then(data => {
+      if (data && data.latitude && data.longitude) {
+        let lat = data.latitude;
+        let lng = data.longitude;
+        console.log("Got location from server:", lat, lng);
+        if (marker) {
+          marker.setPosition({ lat: lat, lng: lng });
+          map.setCenter({ lat: lat, lng: lng });
+        }
+      }
+    })
+    .catch(err => console.error("Error retrieving location:", err));
+  }
+
+  let map, marker;
+  // Initialize the map
+  function initMap() {
+    map = new google.maps.Map(document.getElementById("map"), {
+      center: { lat: 40.4167, lng: -3.7033 }, // Example: Madrid
+      zoom: 12
+    });
+
+    marker = new google.maps.Marker({
+      position: { lat: 40.4167, lng: -3.7033 },
+      map: map
+    });
+
+    // We call updateLocation periodically
+    setInterval(updateLocation, 5000);
+  }
+
+  // Listen for the button click
+  document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("btnRequestCoords").addEventListener("click", requestCoords);
+  });
+  /*]]>*/
+</script>
+
+<!-- Load the Google Maps script with the API key -->
+<script th:src="@{'https://maps.googleapis.com/maps/api/js?key=' + ${googleMapsApiKey} + '&callback=initMap'}"
+        async defer></script>
+</body>
+</html>

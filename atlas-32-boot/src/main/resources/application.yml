@@ -1,0 +1,28 @@
+server:
+  port: 4046
+spring:
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+  datasource:
+    url: "jdbc:postgresql://localhost:5432/postgres"
+    username: admin
+    password: password
+  application:
+    name: atlas-32
+mqtt:
+  qos: 1
+  topic:
+    response:
+      subscribe: device/+/response
+    command:
+      publish: device/+/command
+  broker:
+    url: tcp://localhost:1883
+  client:
+    id: atlas-32
+
+logging:
+  level:
+    root: ERROR

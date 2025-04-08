@@ -1,0 +1,18 @@
+version: "3"
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0.21
+    ports:
+      - "1883:1883"
+    command: mosquitto -c /mosquitto-no-auth.conf
+
+  postgres:
+    image: postgres:15
+    container_name: atlas32-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: atlas32
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
