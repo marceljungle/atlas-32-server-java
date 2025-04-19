@@ -1,25 +1,28 @@
 <!DOCTYPE html>
-<html
-    xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
-    layout:decorate="~{fragments/layout}">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout}">
 
-<div layout:fragment="content">
-  <div>
-    <h1>Decrypt API Key</h1>
+<div layout:fragment="content" class="container mt-4" style="max-width: 450px">
 
-    <div th:if="${param.error}">
-      <strong class="text-danger">Wrong passphrase or error decrypting the key!</strong>
+  <h2 class="mb-4">Decrypt / Activate API Key</h2>
+
+  <!-- error banner -->
+  <div th:if="${param.error}" class="alert alert-danger">
+    Wrong pass‑phrase or error decrypting the key.
+  </div>
+
+  <form th:action="@{/admin/api-keys/use}" method="post">
+    <div class="mb-3">
+      <label class="form-label">Pass‑phrase</label>
+      <input type="password" name="passphrase" class="form-control" required/>
     </div>
 
-    <form th:action="@{/admin/api-keys/use}" method="post">
-      <p>Enter passphrase to decrypt your API Key:</p>
-      <input type="password" name="passphrase"/>
-      <br/>
-      <button type="submit">Use Key</button>
-    </form>
+    <div class="d-grid gap-2">
+      <button type="submit" class="btn btn-primary">Decrypt &amp; Use Key</button>
+      <a th:href="@{/device-map}" class="btn btn-outline-secondary">Back to Map</a>
+    </div>
+  </form>
 
-    <a th:href="@{/device-map}">Go to Map</a>
-  </div>
 </div>
-
 </html>

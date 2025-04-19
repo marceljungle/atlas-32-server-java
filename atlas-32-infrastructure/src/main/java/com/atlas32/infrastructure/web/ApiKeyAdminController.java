@@ -27,7 +27,7 @@ public class ApiKeyAdminController {
 
   @GetMapping("/use")
   public String showUseForm() {
-    return "api-key-use";
+    return "api/key/api-key-use";
   }
 
   @PostMapping("/use")
