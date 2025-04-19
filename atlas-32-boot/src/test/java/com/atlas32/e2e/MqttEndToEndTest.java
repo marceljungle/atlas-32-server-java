@@ -83,7 +83,8 @@ public class MqttEndToEndTest {
 
     boolean messageReceived = latch.await(5, TimeUnit.SECONDS);
 
-    Assertions.assertTrue(messageReceived, "The message did not arrive within the expected time frame");
+    Assertions.assertTrue(
+        messageReceived, "The message did not arrive within the expected time frame");
     Assertions.assertTrue(receivedPayload.toString().contains("GET_COORDINATES"),
         "The payload should contain the command type");
     Assertions.assertTrue(receivedPayload.toString().contains("payloadTest"),
@@ -108,7 +109,9 @@ public class MqttEndToEndTest {
     Thread.sleep(500);
 
     boolean found = listAppender.list.stream()
-        .anyMatch(event -> event.getFormattedMessage().contains("Location update message received:"));
+        .anyMatch(event -> event
+            .getFormattedMessage()
+            .contains("Location update message received:"));
 
     Assertions.assertTrue(found);
   }

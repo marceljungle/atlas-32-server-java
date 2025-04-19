@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html
+    xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{fragments/layout}">
+
+<div layout:fragment="content">
+  <div>
+    <h1>Decrypt API Key</h1>
+
+    <div th:if="${param.error}">
+      <strong class="text-danger">Wrong passphrase or error decrypting the key!</strong>
+    </div>
+
+    <form th:action="@{/admin/api-keys/use}" method="post">
+      <p>Enter passphrase to decrypt your API Key:</p>
+      <input type="password" name="passphrase"/>
+      <br/>
+      <button type="submit">Use Key</button>
+    </form>
+
+    <a th:href="@{/device-map}">Go to Map</a>
+  </div>
+</div>
+
+</html>

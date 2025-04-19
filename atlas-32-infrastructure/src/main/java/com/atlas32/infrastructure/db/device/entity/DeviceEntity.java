@@ -1,11 +1,9 @@
-package com.atlas32.infrastructure.db.api.key.entity;
+package com.atlas32.infrastructure.db.device.entity;
 
-import com.atlas32.infrastructure.db.user.entity.UserEntity;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.OneToOne;
 import javax.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,12 +11,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
+@Table(name = "devices")
 @Builder
-@Table(name = "api_keys")
 @NoArgsConstructor
 @AllArgsConstructor
 @Getter
-public class ApiKeyEntity {
+public class DeviceEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -26,10 +24,5 @@ public class ApiKeyEntity {
 
   private String name;
 
-  private String encryptedValue;
-
-  private String salt;
-
-  @OneToOne(mappedBy = "apiKey")
-  private UserEntity user;
+  private String mqttDeviceId;
 }

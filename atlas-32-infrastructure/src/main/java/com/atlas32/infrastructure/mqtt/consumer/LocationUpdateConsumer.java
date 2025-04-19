@@ -31,13 +31,14 @@ public class LocationUpdateConsumer {
       double lat = rootNode.path("latitude").asDouble();
       double lon = rootNode.path("longitude").asDouble();
 
-      if (!deviceId.isEmpty() && !rootNode.path("latitude").isMissingNode() && !rootNode.path("longitude").isMissingNode()) {
+      if (!deviceId.isEmpty() && !rootNode.path("latitude").isMissingNode() && !rootNode.path(
+          "longitude").isMissingNode()) {
         deviceLocationService.updateLocation(new Device(deviceId), lat, lon);
       } else {
         log.warn("Incomplete or missing fields in payload JSON: {}", payload);
       }
     } catch (IOException e) {
-     log.error("Error parsing the payload JSON: {}", payload, e);
+      log.error("Error parsing the payload JSON: {}", payload, e);
     }
   }
 }

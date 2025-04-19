@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html
+    xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{fragments/layout}">
+
+<div layout:fragment="content">
+  <div class="mt-4">
+    <h1>Settings</h1>
+
+    <div th:if="${param.success}" class="alert alert-success">
+      API Key saved successfully!
+    </div>
+    <div th:if="${param.error}" class="alert alert-danger">
+      Error saving API Key. Please try again.
+    </div>
+
+    <div th:if="${hasApiKey}">
+      <p>You already have an API Key named:
+        <strong th:text="${apiKeyName}"></strong></p>
+      <p>You can update it by filling the form below.</p>
+    </div>
+    <div th:if="${!hasApiKey}">
+      <p>No API Key configured yet.</p>
+      <p>Create one now by filling the form below.</p>
+    </div>
+
+    <form th:action="@{/settings/key}" method="post" class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Key Name</label>
+        <input type="text" class="form-control" name="name" required/>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Raw API Key (plaintext)</label>
+        <input type="text" class="form-control" name="rawApiKey" required/>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Passphrase (for encryption)</label>
+        <input type="password" class="form-control" name="passphrase" required/>
+      </div>
+      <div class="col-12">
+        <button type="submit" class="btn btn-primary">
+          Save Key
+        </button>
+      </div>
+    </form>
+
+    <hr/>
+    <a th:href="@{/device-map}" class="btn btn-secondary">Go to Map</a>
+  </div>
+</div>
+
+</html>

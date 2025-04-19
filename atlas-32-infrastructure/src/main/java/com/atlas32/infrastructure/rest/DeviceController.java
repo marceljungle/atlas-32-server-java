@@ -27,7 +27,7 @@ public class DeviceController {
   }
 
   /**
-   * POST /api/device/{deviceId}/request-coords
+   * POST /api/device/{deviceId}/request-coords.
    */
   @PostMapping("/{deviceId}/request-coords")
   public void requestCoords(@PathVariable String deviceId) {
@@ -36,7 +36,7 @@ public class DeviceController {
   }
 
   /**
-   * GET /api/device/{deviceId}/location
+   * GET /api/device/{deviceId}/location.
    */
   @GetMapping("/{deviceId}/location")
   public Location getLocation(@PathVariable String deviceId) {
