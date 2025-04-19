@@ -5,7 +5,8 @@ import com.atlas32.domain.atlas.command.CommandType;
 import com.atlas32.domain.atlas.device.Device;
 import com.atlas32.domain.atlas.location.Location;
 import com.atlas32.infrastructure.location.DeviceLocationService;
-import com.atlas32.infrastructure.mqtt.producer.CommandPublisher;
+import com.atlas32.usecase.atlas.SendCommandToDevice;
+import com.atlas32.usecase.atlas.params.CommandToDeviceParams;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,14 +17,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/device")
 public class DeviceController {
 
-  private final CommandPublisher commandPublisher;
-
   private final DeviceLocationService locationService;
 
-  public DeviceController(CommandPublisher commandPublisher,
-      DeviceLocationService locationService) {
-    this.commandPublisher = commandPublisher;
+  private final SendCommandToDevice sendCommandToDevice;
+
+  public DeviceController(DeviceLocationService locationService,
+      SendCommandToDevice sendCommandToDevice) {
     this.locationService = locationService;
+    this.sendCommandToDevice = sendCommandToDevice;
   }
 
   /**
@@ -31,8 +32,11 @@ public class DeviceController {
    */
   @PostMapping("/{deviceId}/request-coords")
   public void requestCoords(@PathVariable String deviceId) {
-    commandPublisher.sendCommand(
-        new Command(new Device(deviceId), CommandType.GET_COORDINATES, null));
+    CommandToDeviceParams params = CommandToDeviceParams.builder()
+        .withCommand(
+            new Command(new Device(deviceId), CommandType.GET_COORDINATES, null))
+        .build();
+    sendCommandToDevice.execute(params);
   }
 
   /**

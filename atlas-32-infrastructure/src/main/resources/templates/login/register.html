@@ -3,28 +3,33 @@
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{fragments/layout}">
 
-<div layout:fragment="content">
-  <div class="container">
-    <h1>Register</h1>
+<div layout:fragment="content" class="container mt-5" style="max-width: 450px">
 
-    <div th:if="${param.error}">
-      <strong class="text-danger">Username already exists</strong>
+  <h2 class="mb-4 text-center">Register</h2>
+
+  <!-- username already taken -->
+  <div th:if="${param.error}" class="alert alert-danger">
+    Username already exists – choose another one.
+  </div>
+
+  <form th:action="@{/register}" method="post">
+    <div class="mb-3">
+      <label class="form-label">Username</label>
+      <input type="text"  class="form-control" name="username" required/>
     </div>
 
-    <form th:action="@{/register}" method="post">
-      <div class="mb-3">
-        <label class="form-label">Username:</label>
-        <input type="text" class="form-control" name="username"/>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">Password:</label>
-        <input type="password" class="form-control" name="password"/>
-      </div>
-      <button type="submit" class="btn btn-primary">Sign up</button>
-    </form>
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      <input type="password" class="form-control" name="password" required/>
+    </div>
 
-    <p>Already have an account? <a th:href="@{/login}">Log in</a></p>
-  </div>
+    <button type="submit" class="btn btn-primary w-100">Sign up</button>
+  </form>
+
+  <p class="mt-3 text-center">
+    Already registered?
+    <a th:href="@{/login}">Log in</a>
+  </p>
+
 </div>
-
 </html>

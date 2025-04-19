@@ -2,6 +2,8 @@ package com.atlas32.infrastructure.mqtt.consumer;
 
 import com.atlas32.domain.atlas.device.Device;
 import com.atlas32.infrastructure.location.DeviceLocationService;
+import com.atlas32.usecase.atlas.ProcessLocationUpdate;
+import com.atlas32.usecase.atlas.params.LocationUpdateParams;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
@@ -18,7 +20,7 @@ public class LocationUpdateConsumer {
 
   private final ObjectMapper objectMapper;
 
-  private final DeviceLocationService deviceLocationService;
+  private final ProcessLocationUpdate processLocationUpdate;
 
   @ServiceActivator(inputChannel = "locationUpdateChannel")
   public void handleLocationUpdate(Message<String> message) {
@@ -33,7 +35,12 @@ public class LocationUpdateConsumer {
 
       if (!deviceId.isEmpty() && !rootNode.path("latitude").isMissingNode() && !rootNode.path(
           "longitude").isMissingNode()) {
-        deviceLocationService.updateLocation(new Device(deviceId), lat, lon);
+        LocationUpdateParams params = LocationUpdateParams.builder()
+            .withDeviceId(deviceId)
+            .withLat(lat)
+            .withLng(lon)
+            .build();
+        processLocationUpdate.execute(params);
       } else {
         log.warn("Incomplete or missing fields in payload JSON: {}", payload);
       }
