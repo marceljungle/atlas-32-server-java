@@ -145,7 +145,6 @@ jobs:
           java-version: 21
           cache: 'maven'
 
-      # ADD THIS STEP: Install all modules locally first
       - name: Build and Install all modules locally
         run: mvn install -B -ntp -DskipTests
 
