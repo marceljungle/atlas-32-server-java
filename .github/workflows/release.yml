@@ -36,7 +36,6 @@ jobs:
         run: |
           echo "Resolved Version output: >>>${{ steps.release_drafter.outputs.resolved_version }}<<<"
           echo "Tag Name output (potentially wrong): >>>${{ steps.release_drafter.outputs.tag_name }}<<<"
-          echo "Outputs context: ${{ toJSON(steps.release_drafter.outputs) }}"
 
   # ────────────────── 1.5 EXTRACT & CONSTRUCT VERSION/TAG ─────────────────
   # New intermediate job to construct the correct tag
