@@ -1,0 +1,19 @@
+name-template: 'v$NEXT_VERSION'
+tag-template:  'v$NEXT_VERSION'
+
+categories:
+  - title: 🚀 Features
+    labels: [ 'feature', 'enhancement', 'version:minor' ]
+  - title: 🐛 Fixes
+    labels: [ 'bug', 'hotfix', 'version:patch' ]
+  - title: 🧰 Maintenance
+    labels: [ 'chore', 'refactor', 'docs', 'tests' ]
+
+change-template: '- $TITLE (#$NUMBER)'
+version-resolver:
+  major:
+    labels: [ 'version:major' ]
+  minor:
+    labels: [ 'version:minor', 'feature' ]
+  patch:
+    labels: [ 'version:patch', 'hotfix', 'bug' ]
