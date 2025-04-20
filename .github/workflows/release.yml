@@ -26,23 +26,37 @@ jobs:
           fetch-depth: 0 # Required for release-drafter to compare tags
 
       # Run release-drafter to calculate the next version and generate notes
-      # It does NOT publish the release yet (publish: false is default)
       # It uses the configuration from .github/release-drafter.yml
       - name: Draft next release notes and version
         id: release_drafter
         uses: release-drafter/release-drafter@v6
         env:
+          # GITHUB_TOKEN implicitly uses the permissions defined at the workflow level
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # 'publish: false' or leaving it out keeps the release as a draft
 
       # Extract the version number without the 'v' prefix for Maven
       - name: Extract version number
         id: versioner
         run: |
-          VERSION=$(echo "${{ steps.release_drafter.outputs.tag_name }}" | sed 's/^v//')
+          # Get the tag name from the previous step's output
+          TAG_NAME="${{ steps.release_drafter.outputs.tag_name }}"
+
+          # Add check to ensure tag_name is not empty before processing
+          if [ -z "$TAG_NAME" ]; then
+            echo "Error: Release Drafter did not produce a tag name. Is there an initial tag/release (e.g., v0.1.0)?"
+            # Exit with error code 1 to fail the job explicitly
+            exit 1
+          fi
+
+          # Remove 'v' prefix
+          VERSION=$(echo "$TAG_NAME" | sed 's/^v//')
+
+          # Set the output for subsequent steps
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # Log the results for debugging
           echo "Calculated version: $VERSION"
-          echo "Calculated tag: ${{ steps.release_drafter.outputs.tag_name }}"
+          echo "Calculated tag: $TAG_NAME"
 
   # ────────────────── 2  UPDATE POM, COMMIT & TAG ──────────────────────────
   update_pom_and_tag:
@@ -56,7 +70,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           # We need the token to push commits and tags
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }} # Inherits permissions from workflow level
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -69,8 +83,13 @@ jobs:
         run: |
           echo "Setting Maven version to: ${{ needs.draft_release.outputs.version }}"
           # Use 'mvn' directly as the wrapper is not present
-          mvn -B -ntp versions:set -DnewVersion=${{ needs.draft_release.outputs.version }} versions:commit
-          # -B batch mode, -ntp no transfer progress
+          # Check if version is non-empty before running mvn
+          VERSION_TO_SET="${{ needs.draft_release.outputs.version }}"
+          if [ -z "$VERSION_TO_SET" ]; then
+            echo "Error: Version from previous step is empty."
+            exit 1
+          fi
+          mvn -B -ntp versions:set -DnewVersion=$VERSION_TO_SET versions:commit
 
       - name: Commit and Tag release
         run: |
@@ -88,9 +107,10 @@ jobs:
   build_image:
     needs: [draft_release, update_pom_and_tag] # Needs version and tag
     runs-on: ubuntu-latest
+    # permissions block at job level is overridden by workflow level, but kept here for clarity if needed elsewhere
     permissions:
       contents: read
-      packages: write # Permission to write to Docker Hub or GHCR
+      packages: write # Permission to write to Docker Hub or GHCR (granted at workflow level)
     steps:
       # Checkout the specific commit where the POM was updated and the tag was created
       - name: Checkout repository at tag
@@ -114,12 +134,12 @@ jobs:
       - name: Build OCI image with Spring Boot Buildpacks
         run: |
           echo "Building image: ${{ steps.img_name.outputs.image_name }}"
+          # Use 'mvn' directly. Ensure module path (-pl) is correct for your project structure.
           mvn -B -ntp -pl atlas-32-boot -am -DskipTests \
                  spring-boot:build-image \
                  -Dspring-boot.build-image.imageName=${{ steps.img_name.outputs.image_name }} \
                  -Dspring-boot.build-image.builder=docker.io/paketobuildpacks/builder-jammy-base:latest \
                  -Dspring-boot.build-image.platform=linux/amd64,linux/arm64 # Optional: for multi-arch builds
-                 # -Dspring-boot.build-image.environment.BP_PLATFORM_API=0.9 # Check if still needed
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -136,18 +156,19 @@ jobs:
   publish_github_release:
     needs: [draft_release, update_pom_and_tag, build_image] # Depends on all previous jobs succeeding
     runs-on: ubuntu-latest
+    # permissions block at job level is overridden by workflow level
     permissions:
-      contents: write # Required to publish/update the release
+      contents: write # Required to publish/update the release (granted at workflow level)
     steps:
       # Use ncipollo/release-action to publish the final release
       # It will use the tag created and the notes generated by release-drafter
       - name: Publish GitHub Release
         uses: ncipollo/release-action@v1
         with:
+          # token implicitly uses workflow token with granted permissions
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ needs.draft_release.outputs.tag_name }}
           name: ${{ needs.draft_release.outputs.release_name }}
           body: ${{ needs.draft_release.outputs.body }}
           draft: false # Ensure it's published (not a draft)
           prerelease: false # Ensure it's not a pre-release
-          # generateReleaseNotes: false # We already have notes from release-drafter
