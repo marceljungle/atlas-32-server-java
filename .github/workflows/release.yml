@@ -33,6 +33,12 @@ jobs:
         env:
           # GITHUB_TOKEN implicitly uses the permissions defined at the workflow level
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Debug release_drafter outputs
+        run: |
+          echo "tag_name output: >>>${{ steps.release_drafter.outputs.tag_name }}<<<"
+          echo "name output: >>>${{ steps.release_drafter.outputs.name }}<<<"
+          echo "body output: >>>${{ steps.release_drafter.outputs.body }}<<<"
+          echo "outputs context: ${{ toJSON(steps.release_drafter.outputs) }}"
 
       # Extract the version number without the 'v' prefix for Maven
       - name: Extract version number
