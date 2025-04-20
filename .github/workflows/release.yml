@@ -20,13 +20,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }           # we need tag history
-
-      # decide which part to bump from PR labels (default = minor)
-      - id: bump-kind
-        uses: zwaldowski/match-label-action@v4
+      - id: pr
+        uses: actions-ecosystem/action-get-merged-pull-request@v1.0.1
         with:
-          allowed: major,minor,patch
-
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      # decide which part of SemVer to bump
+      - id: bump-kind
+        run: |
+          echo "labels on PR:   ${{ steps.pr.outputs.labels }}"
+          bump=minor # default
+          [[ "${{ steps.pr.outputs.labels }}" =~ (^|,|\s)major($|,|\s) ]] && bump=major
+          [[ "${{ steps.pr.outputs.labels }}" =~ (^|,|\s)hotfix($|,|\s) ]] && bump=hotfix
+          [[ "${{ steps.pr.outputs.labels }}" =~ (^|,|\s)minor($|,|\s) ]] && bump=minor
+          echo "bump=$bump"
+          echo "match=$bump" >> "$GITHUB_OUTPUT"
 
       # calculate next SemVer and create an annotated tag (dry‑run = false)
       - id: bump
