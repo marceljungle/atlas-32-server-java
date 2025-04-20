@@ -1,5 +1,6 @@
 name-template: 'v$NEXT_VERSION'
 tag-template:  'v$NEXT_VERSION'
+prerelease: false
 
 categories:
   - title: 🚀 Features
@@ -17,3 +18,9 @@ version-resolver:
     labels: [ 'minor', 'feature' ]
   patch:
     labels: [ 'patch', 'hotfix', 'bug' ]
+template: |
+  ## Changes
+
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$NEXT_VERSION
