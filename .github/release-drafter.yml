@@ -3,17 +3,17 @@ tag-template:  'v$NEXT_VERSION'
 
 categories:
   - title: 🚀 Features
-    labels: [ 'feature', 'enhancement', 'version:minor' ]
+    labels: [ 'feature', 'enhancement', 'minor' ]
   - title: 🐛 Fixes
-    labels: [ 'bug', 'hotfix', 'version:patch' ]
+    labels: [ 'bug', 'hotfix', 'patch' ]
   - title: 🧰 Maintenance
     labels: [ 'chore', 'refactor', 'docs', 'tests' ]
 
 change-template: '- $TITLE (#$NUMBER)'
 version-resolver:
   major:
-    labels: [ 'version:major' ]
+    labels: [ 'major' ]
   minor:
-    labels: [ 'version:minor', 'feature' ]
+    labels: [ 'minor', 'feature' ]
   patch:
-    labels: [ 'version:patch', 'hotfix', 'bug' ]
+    labels: [ 'patch', 'hotfix', 'bug' ]
