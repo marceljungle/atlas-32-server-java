@@ -173,5 +173,30 @@
 
   <reporting/>
 
-  <profiles/>
+  <profiles>
+    <profile>
+      <id>ci-no-e2e</id>
+      <activation>
+        <property>
+          <name>skipE2E</name>
+        </property>
+      </activation>
+
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <version>3.2.5</version>
+            <configuration>
+              <excludes>
+                <exclude>**/e2e/**</exclude>
+                <exclude>**/it/**</exclude>
+              </excludes>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
