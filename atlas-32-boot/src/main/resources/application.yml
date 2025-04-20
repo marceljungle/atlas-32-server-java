@@ -6,9 +6,9 @@ spring:
     hibernate:
       ddl-auto: update
   datasource:
-    url: "jdbc:postgresql://localhost:5432/postgres"
-    username: admin
-    password: password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${SPRING_DATASOURCE_USERNAME:admin}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
   application:
     name: atlas-32
 mqtt:
@@ -19,7 +19,7 @@ mqtt:
     command:
       publish: device/+/command
   broker:
-    url: tcp://localhost:1883
+    url: ${MQTT_BROKER_URL:tcp://localhost:1883}
   client:
     id: atlas-32
 

@@ -7,7 +7,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @EnableWebSecurity
 @Configuration
@@ -18,7 +17,7 @@ public class SecurityConfig {
 
     http
         .authorizeHttpRequests(auth -> auth
-            .antMatchers("/register", "/login", "/css/**", "/js/**").permitAll()
+            .requestMatchers("/register", "/login", "/css/**", "/js/**").permitAll()
             .anyRequest().authenticated()
         )
         .formLogin(login -> login
@@ -26,8 +25,8 @@ public class SecurityConfig {
             .permitAll()
         )
         .logout(logout -> logout
-            .logoutUrl("/logout")                       // default is POST /logout
-            .logoutSuccessUrl("/login?logout")          // redir after success
+            .logoutUrl("/logout")
+            .logoutSuccessUrl("/login?logout")
             .invalidateHttpSession(true)
             .deleteCookies("JSESSIONID")
         );

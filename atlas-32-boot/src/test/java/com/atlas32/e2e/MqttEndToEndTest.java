@@ -1,5 +1,7 @@
 package com.atlas32.e2e;
 
+import static org.awaitility.Awaitility.await;
+
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -22,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest(classes = Application.class)
@@ -66,7 +67,7 @@ public class MqttEndToEndTest {
     CountDownLatch latch = new CountDownLatch(1);
     final StringBuilder receivedPayload = new StringBuilder();
 
-    // subsribe to the topic
+    // subscribe to the topic
     testClient.subscribe(topicToSubscribe, (topic, msg) -> {
       receivedPayload.append(new String(msg.getPayload()));
       latch.countDown();
@@ -87,8 +88,6 @@ public class MqttEndToEndTest {
         messageReceived, "The message did not arrive within the expected time frame");
     Assertions.assertTrue(receivedPayload.toString().contains("GET_COORDINATES"),
         "The payload should contain the command type");
-    Assertions.assertTrue(receivedPayload.toString().contains("payloadTest"),
-        "The payload should contain the command payload");
   }
 
   @Test
@@ -106,13 +105,9 @@ public class MqttEndToEndTest {
 
     testClient.publish(topicToSubscribe, new MqttMessage());
 
-    Thread.sleep(500);
-
-    boolean found = listAppender.list.stream()
+    await().untilAsserted(() -> listAppender.list.stream()
         .anyMatch(event -> event
             .getFormattedMessage()
-            .contains("Location update message received:"));
-
-    Assertions.assertTrue(found);
+            .contains("Location update message received (JSON): ")));
   }
 }

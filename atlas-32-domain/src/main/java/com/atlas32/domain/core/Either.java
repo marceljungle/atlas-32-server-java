@@ -29,7 +29,7 @@ import java.util.stream.Stream;
  * </code>
  * </pre>
  *
- * <p> If the result of compute() is Right(1), the value is Right(2).<br> If the result of
+ * <p>If the result of compute() is Right(1), the value is Right(2).<br> If the result of
  * compute() is Left("error"), the value is Left("error"). </p>
  *
  * @param <L> The type of the Left value of an Either.
