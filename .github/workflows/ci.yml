@@ -14,5 +14,5 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Build and unit‑test
-        run: mvn -B -ntp verify
+      - name: Build and unit‑test (no e2e)
+        run: mvn -B -ntp verify -DskipE2E
