@@ -114,9 +114,12 @@ jobs:
           git commit -am "chore(release): prepare release ${{ needs.extract_and_construct_version.outputs.tag_name }}" || echo "No changes to commit in pom.xml"
           echo "Creating tag: ${{ needs.extract_and_construct_version.outputs.tag_name }}"
           git tag ${{ needs.extract_and_construct_version.outputs.tag_name }}
-          echo "Pushing changes and tag..."
-          # Push the commit and the created tag
-          git push origin main --follow-tags
+          echo "Pushing changes..."
+          # Push the commit first
+          git push origin main
+          echo "Pushing tags..."
+          # Explicitly push tags afterwards
+          git push origin --tags
 
   # ────────────────────────────── 3  BUILD IMAGE ────────────────────────────
   build_image:
@@ -132,6 +135,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.update_pom_and_tag.outputs.tag_name }}
+          fetch-depth: 0
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
