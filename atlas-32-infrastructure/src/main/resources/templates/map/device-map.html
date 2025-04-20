@@ -51,7 +51,7 @@
       /*<![CDATA[*/
       const apiKey  = /*[[${googleMapsApiKey}]]*/ 'XYZ';
 
-      /* DeviceDto[]  ->  [{name:"Tracker 1", mqttDeviceId:"d1"}, …]           */
+      /* DeviceDto[]  ->  [{name:"Tracker 1", mqttDeviceId:"d1"}, …]           */
       const devices = /*[[${devices}]]*/ [];
 
       let map;
@@ -85,7 +85,7 @@
         });
 
         updateAllLocations();          // first fetch now
-        setInterval(updateAllLocations, 5000);   // …then every 5 s
+        setInterval(updateAllLocations, 5000);   // …then every 5 s
       }
 
       function updateAllLocations() {

@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+
+# ───────────────────────────── SECRETS NEEDED ─────────────────────────────
+# DOCKER_USER       → your Docker Hub user/org
+# DOCKER_PASSWORD   → Docker Hub PAT or password
+# (GITHUB_TOKEN is provided automatically)
+# ───────────────────────────────────────────────────────────────────────────
+
+jobs:
+  # ────────────────────────────── 1  BUMP VERSION ───────────────────────────
+  semver:
+    runs-on: ubuntu-latest
+    outputs:
+      version:      ${{ steps.bump.outputs.version }}       # 1.2.3
+      version_tag:  ${{ steps.bump.outputs.version_tag }}   # v1.2.3
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }           # we need tag history
+
+      # decide which part to bump from PR labels (default = minor)
+      - id: bump-kind
+        uses: zwaldowski/match-label-action@v4
+        with:
+          allowed: major,minor,patch
+
+
+      # calculate next SemVer and create an annotated tag (dry‑run = false)
+      - id: bump
+        uses: zwaldowski/semver-release-action@v4
+        with:
+          bump: ${{ steps.bump-kind.outputs.match }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prefix: v                          # tag will be "v1.2.3"
+
+      # update Maven POMs ▶ commit ▶ push
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - name: Bump Maven version to ${{ steps.bump.outputs.version }}
+        run: |
+          ./mvnw -q -B versions:set -DnewVersion=${{ steps.bump.outputs.version }} versions:commit
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(release): ${{ steps.bump.outputs.version }}" || echo "no pom change"
+          git tag ${{ steps.bump.outputs.version_tag }}
+          git push --follow-tags
+
+  # ────────────────────────────── 2  BUILD IMAGE ────────────────────────────
+  build-image:
+    needs: semver
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+
+      # Build a multi‑arch (AMD64+ARM64) image via Buildpacks
+      - name: Build OCI image
+        run: |
+          IMG=${{ secrets.DOCKER_USER }}/atlas-32-server:${{ needs.semver.outputs.version }}
+          ./mvnw -pl atlas-32-boot -am -DskipTests \
+                 spring-boot:build-image \
+                 -Dspring-boot.build-image.imageName=$IMG \
+                 -Dspring-boot.build-image.builder=docker.io/paketobuildpacks/builder-jammy-base:latest \
+                 -Dspring-boot.build-image.environment.BP_PLATFORM_API=0.9
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Push image
+        run: docker push ${{ secrets.DOCKER_USER }}/atlas-32-server:${{ needs.semver.outputs.version }}
+
+  # ───────────────────────────── 3  GITHUB RELEASE ──────────────────────────
+  github-release:
+    needs: [semver, build-image]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ncipollo/release-action@v1
+        with:
+          tag:   ${{ needs.semver.outputs.version_tag }}
+          name:  ${{ needs.semver.outputs.version_tag }}
+          draft: false
+          generateReleaseNotes: false   # Release‑Drafter will fill notes

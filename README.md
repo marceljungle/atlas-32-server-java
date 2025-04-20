@@ -88,7 +88,7 @@ docker buildx create --name multiarch --use
 # Build for both amd64 and arm64 and push
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t yourname/atlas32-server:1.0.0 \
+  -t yourname/atlas-32-server:1.0.0 \
   --push .
 ```
 
@@ -99,7 +99,7 @@ Alternatively, let Spring Boot + Buildpacks do the work:
 cd atlas-32-boot
 mvn spring-boot:build-image \
     -DskipTests \
-    -Dspring-boot.build-image.imageName=yourname/atlas32-server:1.0.0
+    -Dspring-boot.build-image.imageName=yourname/atlas-32-server:1.0.0
 ```
 
 (Buildpacks currently produce multi-arch when run through Buildx too.)
