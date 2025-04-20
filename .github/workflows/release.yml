@@ -15,68 +15,76 @@ jobs:
   draft_release:
     runs-on: ubuntu-latest
     outputs:
-      tag_name: ${{ steps.release_drafter.outputs.tag_name }} # e.g., v1.2.3
-      release_name: ${{ steps.release_drafter.outputs.name }}   # e.g., v1.2.3
-      body: ${{ steps.release_drafter.outputs.body }}       # Generated release notes
-      version: ${{ steps.versioner.outputs.version }}      # e.g., 1.2.3 (without 'v')
+      # Pass the body and the resolved version (ignore tag_name and name from here)
+      body: ${{ steps.release_drafter.outputs.body }}
+      resolved_version: ${{ steps.release_drafter.outputs.resolved_version }} # Use this output which IS correct
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Required for release-drafter to compare tags
 
-      # Run release-drafter to calculate the next version and generate notes
-      # It uses the configuration from .github/release-drafter.yml
       - name: Draft next release notes and version
         id: release_drafter
         uses: release-drafter/release-drafter@v6
         env:
-          # GITHUB_TOKEN implicitly uses the permissions defined at the workflow level
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Debug release_drafter outputs
-        run: |
-          echo "tag_name output: >>>${{ steps.release_drafter.outputs.tag_name }}<<<"
-          echo "name output: >>>${{ steps.release_drafter.outputs.name }}<<<"
-          echo "body output: >>>${{ steps.release_drafter.outputs.body }}<<<"
-          echo "outputs context: ${{ toJSON(steps.release_drafter.outputs) }}"
 
-      # Extract the version number without the 'v' prefix for Maven
-      - name: Extract version number
+      # (Optional) Keep debug step for verification if needed
+      - name: Debug release_drafter outputs
+        if: always() # Run even if previous steps fail (for debugging)
+        run: |
+          echo "Resolved Version output: >>>${{ steps.release_drafter.outputs.resolved_version }}<<<"
+          echo "Tag Name output (potentially wrong): >>>${{ steps.release_drafter.outputs.tag_name }}<<<"
+          echo "Outputs context: ${{ toJSON(steps.release_drafter.outputs) }}"
+
+  # ────────────────── 1.5 EXTRACT & CONSTRUCT VERSION/TAG ─────────────────
+  # New intermediate job to construct the correct tag
+  extract_and_construct_version:
+    runs-on: ubuntu-latest
+    needs: draft_release # Needs the resolved_version
+    outputs:
+      version: ${{ steps.versioner.outputs.version }}      # e.g., 0.2.0 (without v)
+      tag_name: ${{ steps.versioner.outputs.tag_name }}    # e.g., v0.2.0 (with v)
+      release_name: ${{ steps.versioner.outputs.tag_name }} # Use the constructed tag as name
+      body: ${{ needs.draft_release.outputs.body }}        # Pass the body (might still contain v$NEXT_VERSION)
+    steps:
+      - name: Construct version and tag from resolved_version
         id: versioner
         run: |
-          # Get the tag name from the previous step's output
-          TAG_NAME="${{ steps.release_drafter.outputs.tag_name }}"
+          RESOLVED_VERSION="${{ needs.draft_release.outputs.resolved_version }}"
+          echo "Received resolved_version: $RESOLVED_VERSION"
 
-          # Add check to ensure tag_name is not empty before processing
-          if [ -z "$TAG_NAME" ]; then
-            echo "Error: Release Drafter did not produce a tag name. Is there an initial tag/release (e.g., v0.1.0)?"
-            # Exit with error code 1 to fail the job explicitly
+          if [ -z "$RESOLVED_VERSION" ]; then
+            echo "Error: Release Drafter did not produce a resolved_version."
             exit 1
           fi
 
-          # Remove 'v' prefix
-          VERSION=$(echo "$TAG_NAME" | sed 's/^v//')
+          # Construct the tag_name by adding 'v'
+          TAG_NAME="v$RESOLVED_VERSION"
 
-          # Set the output for subsequent steps
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Set outputs
+          # version is without 'v' for Maven
+          echo "version=$RESOLVED_VERSION" >> "$GITHUB_OUTPUT"
+          # tag_name includes 'v' for Git/GitHub Release
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
-          # Log the results for debugging
-          echo "Calculated version: $VERSION"
-          echo "Calculated tag: $TAG_NAME"
+          echo "Constructed version: $RESOLVED_VERSION"
+          echo "Constructed tag_name: $TAG_NAME"
 
   # ────────────────── 2  UPDATE POM, COMMIT & TAG ──────────────────────────
   update_pom_and_tag:
-    needs: draft_release
+    # Depends on the job that constructs the correct version/tag
+    needs: extract_and_construct_version
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ needs.draft_release.outputs.version }} # Pass clean version to next job
-      tag_name: ${{ needs.draft_release.outputs.tag_name }} # Pass tag to next job
+      version: ${{ needs.extract_and_construct_version.outputs.version }}
+      tag_name: ${{ needs.extract_and_construct_version.outputs.tag_name }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # We need the token to push commits and tags
-          token: ${{ secrets.GITHUB_TOKEN }} # Inherits permissions from workflow level
+          token: ${{ secrets.GITHUB_TOKEN }} # We need the token to push commits and tags
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -85,44 +93,46 @@ jobs:
           java-version: 21
           cache: 'maven' # Optional: cache Maven dependencies
 
-      - name: Update Maven version to ${{ needs.draft_release.outputs.version }}
+      # Use the version (without v) from the previous job
+      - name: Update Maven version to ${{ needs.extract_and_construct_version.outputs.version }}
         run: |
-          echo "Setting Maven version to: ${{ needs.draft_release.outputs.version }}"
-          # Use 'mvn' directly as the wrapper is not present
-          # Check if version is non-empty before running mvn
-          VERSION_TO_SET="${{ needs.draft_release.outputs.version }}"
+          echo "Setting Maven version to: ${{ needs.extract_and_construct_version.outputs.version }}"
+          VERSION_TO_SET="${{ needs.extract_and_construct_version.outputs.version }}"
           if [ -z "$VERSION_TO_SET" ]; then
             echo "Error: Version from previous step is empty."
             exit 1
           fi
+          # Use 'mvn' directly as the wrapper is not present
           mvn -B -ntp versions:set -DnewVersion=$VERSION_TO_SET versions:commit
+          # -B batch mode, -ntp no transfer progress
 
+      # Use the tag_name (with v) from the previous job
       - name: Commit and Tag release
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # Commit changes in pom.xml files
-          git commit -am "chore(release): prepare release ${{ needs.draft_release.outputs.tag_name }}" || echo "No changes to commit in pom.xml"
-          echo "Creating tag: ${{ needs.draft_release.outputs.tag_name }}"
-          git tag ${{ needs.draft_release.outputs.tag_name }}
+          git commit -am "chore(release): prepare release ${{ needs.extract_and_construct_version.outputs.tag_name }}" || echo "No changes to commit in pom.xml"
+          echo "Creating tag: ${{ needs.extract_and_construct_version.outputs.tag_name }}"
+          git tag ${{ needs.extract_and_construct_version.outputs.tag_name }}
           echo "Pushing changes and tag..."
           # Push the commit and the created tag
           git push origin main --follow-tags
 
   # ────────────────────────────── 3  BUILD IMAGE ────────────────────────────
   build_image:
-    needs: [draft_release, update_pom_and_tag] # Needs version and tag
+    # Depends on the job that updates the POM and creates the tag
+    needs: [extract_and_construct_version, update_pom_and_tag]
     runs-on: ubuntu-latest
-    # permissions block at job level is overridden by workflow level, but kept here for clarity if needed elsewhere
     permissions:
       contents: read
-      packages: write # Permission to write to Docker Hub or GHCR (granted at workflow level)
+      packages: write # Permission to write to Docker Hub or GHCR
     steps:
-      # Checkout the specific commit where the POM was updated and the tag was created
+      # Use the tag_name (with v) from the previous job for checkout
       - name: Checkout repository at tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.update_pom_and_tag.outputs.tag_name }} # Checkout the tag created in the previous job
+          ref: ${{ needs.update_pom_and_tag.outputs.tag_name }}
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -131,7 +141,7 @@ jobs:
           java-version: 21
           cache: 'maven'
 
-      # Define image name using the version from the previous job
+      # Use the version (without v) from the previous job for the image name
       - name: Define Image Name
         id: img_name
         run: |
@@ -146,6 +156,7 @@ jobs:
                  -Dspring-boot.build-image.imageName=${{ steps.img_name.outputs.image_name }} \
                  -Dspring-boot.build-image.builder=docker.io/paketobuildpacks/builder-jammy-base:latest \
                  -Dspring-boot.build-image.platform=linux/amd64,linux/arm64 # Optional: for multi-arch builds
+                 # -Dspring-boot.build-image.environment.BP_PLATFORM_API=0.9 # Optional: Check if still needed
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -160,21 +171,22 @@ jobs:
 
   # ────────────────────────── 4  PUBLISH GITHUB RELEASE ─────────────────────
   publish_github_release:
-    needs: [draft_release, update_pom_and_tag, build_image] # Depends on all previous jobs succeeding
+    # Depends on the job that constructs the correct version/tag and the image build
+    needs: [extract_and_construct_version, update_pom_and_tag, build_image]
     runs-on: ubuntu-latest
-    # permissions block at job level is overridden by workflow level
     permissions:
-      contents: write # Required to publish/update the release (granted at workflow level)
+      contents: write # Required to publish/update the release
     steps:
-      # Use ncipollo/release-action to publish the final release
-      # It will use the tag created and the notes generated by release-drafter
       - name: Publish GitHub Release
         uses: ncipollo/release-action@v1
         with:
-          # token implicitly uses workflow token with granted permissions
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ needs.draft_release.outputs.tag_name }}
-          name: ${{ needs.draft_release.outputs.release_name }}
-          body: ${{ needs.draft_release.outputs.body }}
+          # Use the correctly constructed tag and name
+          tag: ${{ needs.extract_and_construct_version.outputs.tag_name }}
+          name: ${{ needs.extract_and_construct_version.outputs.release_name }}
+          # The body might still contain the unresolved v$NEXT_VERSION.
+          # We could fix it here with sed if important, or leave it as is.
+          body: ${{ needs.extract_and_construct_version.outputs.body }}
           draft: false # Ensure it's published (not a draft)
           prerelease: false # Ensure it's not a pre-release
+          # generateReleaseNotes: false # We already have notes from release-drafter
