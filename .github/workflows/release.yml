@@ -4,77 +4,116 @@ on:
   push:
     branches: [ main ]
 
-# ───────────────────────────── SECRETS NEEDED ─────────────────────────────
-# DOCKER_USER       → your Docker Hub user/org
-# DOCKER_PASSWORD   → Docker Hub PAT or password
-# (GITHUB_TOKEN is provided automatically)
-# ───────────────────────────────────────────────────────────────────────────
-
 jobs:
-  # ────────────────────────────── 1  BUMP VERSION ───────────────────────────
-  semver:
+  # ────────────────── 1  DETERMINE VERSION & DRAFT NOTES ───────────────────
+  draft_release:
     runs-on: ubuntu-latest
     outputs:
-      version:      ${{ steps.bump.outputs.version }}       # 1.2.3
-      version_tag:  ${{ steps.bump.outputs.version_tag }}   # v1.2.3
+      tag_name: ${{ steps.release_drafter.outputs.tag_name }} # e.g., v1.2.3
+      release_name: ${{ steps.release_drafter.outputs.name }}   # e.g., v1.2.3
+      body: ${{ steps.release_drafter.outputs.body }}       # Generated release notes
+      version: ${{ steps.versioner.outputs.version }}      # e.g., 1.2.3 (without 'v')
     steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }           # we need tag history
-      - id: pr
-        uses: actions-ecosystem/action-get-merged-pull-request@v1.0.1
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-      # decide which part of SemVer to bump
-      - id: bump-kind
+          fetch-depth: 0 # Required for release-drafter to compare tags
+
+      # Run release-drafter to calculate the next version and generate notes
+      # It does NOT publish the release yet (publish: false is default)
+      # It uses the configuration from .github/release-drafter.yml
+      - name: Draft next release notes and version
+        id: release_drafter
+        uses: release-drafter/release-drafter@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # 'publish: false' or leaving it out keeps the release as a draft
+
+      # Extract the version number without the 'v' prefix for Maven
+      - name: Extract version number
+        id: versioner
         run: |
-          echo "labels on PR:   ${{ steps.pr.outputs.labels }}"
-          bump=minor # default
-          [[ "${{ steps.pr.outputs.labels }}" =~ (^|,|\s)major($|,|\s) ]] && bump=major
-          [[ "${{ steps.pr.outputs.labels }}" =~ (^|,|\s)hotfix($|,|\s) ]] && bump=hotfix
-          [[ "${{ steps.pr.outputs.labels }}" =~ (^|,|\s)minor($|,|\s) ]] && bump=minor
-          echo "bump=$bump"
-          echo "match=$bump" >> "$GITHUB_OUTPUT"
+          VERSION=$(echo "${{ steps.release_drafter.outputs.tag_name }}" | sed 's/^v//')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Calculated version: $VERSION"
+          echo "Calculated tag: ${{ steps.release_drafter.outputs.tag_name }}"
 
-      # calculate next SemVer and create an annotated tag (dry‑run = false)
-      - id: bump
-        uses: zwaldowski/semver-release-action@v4
-        with:
-          bump: ${{ steps.bump-kind.outputs.match }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          prefix: v                          # tag will be "v1.2.3"
-
-      # update Maven POMs ▶ commit ▶ push
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 21 }
-      - name: Bump Maven version to ${{ steps.bump.outputs.version }}
-        run: |
-          ./mvnw -q -B versions:set -DnewVersion=${{ steps.bump.outputs.version }} versions:commit
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -am "chore(release): ${{ steps.bump.outputs.version }}" || echo "no pom change"
-          git tag ${{ steps.bump.outputs.version_tag }}
-          git push --follow-tags
-
-  # ────────────────────────────── 2  BUILD IMAGE ────────────────────────────
-  build-image:
-    needs: semver
+  # ────────────────── 2  UPDATE POM, COMMIT & TAG ──────────────────────────
+  update_pom_and_tag:
+    needs: draft_release
     runs-on: ubuntu-latest
-    permissions: { contents: read, packages: write }
+    outputs:
+      version: ${{ needs.draft_release.outputs.version }} # Pass clean version to next job
+      tag_name: ${{ needs.draft_release.outputs.tag_name }} # Pass tag to next job
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # We need the token to push commits and tags
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 21 }
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: 'maven' # Optional: cache Maven dependencies
 
-      # Build a multi‑arch (AMD64+ARM64) image via Buildpacks
-      - name: Build OCI image
+      - name: Update Maven version to ${{ needs.draft_release.outputs.version }}
         run: |
-          IMG=${{ secrets.DOCKER_USER }}/atlas-32-server:${{ needs.semver.outputs.version }}
-          ./mvnw -pl atlas-32-boot -am -DskipTests \
+          echo "Setting Maven version to: ${{ needs.draft_release.outputs.version }}"
+          # Use 'mvn' directly as the wrapper is not present
+          mvn -B -ntp versions:set -DnewVersion=${{ needs.draft_release.outputs.version }} versions:commit
+          # -B batch mode, -ntp no transfer progress
+
+      - name: Commit and Tag release
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Commit changes in pom.xml files
+          git commit -am "chore(release): prepare release ${{ needs.draft_release.outputs.tag_name }}" || echo "No changes to commit in pom.xml"
+          echo "Creating tag: ${{ needs.draft_release.outputs.tag_name }}"
+          git tag ${{ needs.draft_release.outputs.tag_name }}
+          echo "Pushing changes and tag..."
+          # Push the commit and the created tag
+          git push origin main --follow-tags
+
+  # ────────────────────────────── 3  BUILD IMAGE ────────────────────────────
+  build_image:
+    needs: [draft_release, update_pom_and_tag] # Needs version and tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Permission to write to Docker Hub or GHCR
+    steps:
+      # Checkout the specific commit where the POM was updated and the tag was created
+      - name: Checkout repository at tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.update_pom_and_tag.outputs.tag_name }} # Checkout the tag created in the previous job
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: 'maven'
+
+      # Define image name using the version from the previous job
+      - name: Define Image Name
+        id: img_name
+        run: |
+          echo "image_name=${{ secrets.DOCKER_USER }}/atlas-32-server:${{ needs.update_pom_and_tag.outputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Build OCI image with Spring Boot Buildpacks
+        run: |
+          echo "Building image: ${{ steps.img_name.outputs.image_name }}"
+          mvn -B -ntp -pl atlas-32-boot -am -DskipTests \
                  spring-boot:build-image \
-                 -Dspring-boot.build-image.imageName=$IMG \
+                 -Dspring-boot.build-image.imageName=${{ steps.img_name.outputs.image_name }} \
                  -Dspring-boot.build-image.builder=docker.io/paketobuildpacks/builder-jammy-base:latest \
-                 -Dspring-boot.build-image.environment.BP_PLATFORM_API=0.9
+                 -Dspring-boot.build-image.platform=linux/amd64,linux/arm64 # Optional: for multi-arch builds
+                 # -Dspring-boot.build-image.environment.BP_PLATFORM_API=0.9 # Check if still needed
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -82,17 +121,27 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Push image
-        run: docker push ${{ secrets.DOCKER_USER }}/atlas-32-server:${{ needs.semver.outputs.version }}
+      - name: Push image to Docker Hub
+        run: |
+          echo "Pushing image: ${{ steps.img_name.outputs.image_name }}"
+          docker push ${{ steps.img_name.outputs.image_name }}
 
-  # ───────────────────────────── 3  GITHUB RELEASE ──────────────────────────
-  github-release:
-    needs: [semver, build-image]
+  # ────────────────────────── 4  PUBLISH GITHUB RELEASE ─────────────────────
+  publish_github_release:
+    needs: [draft_release, update_pom_and_tag, build_image] # Depends on all previous jobs succeeding
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to publish/update the release
     steps:
-      - uses: ncipollo/release-action@v1
+      # Use ncipollo/release-action to publish the final release
+      # It will use the tag created and the notes generated by release-drafter
+      - name: Publish GitHub Release
+        uses: ncipollo/release-action@v1
         with:
-          tag:   ${{ needs.semver.outputs.version_tag }}
-          name:  ${{ needs.semver.outputs.version_tag }}
-          draft: false
-          generateReleaseNotes: false   # Release‑Drafter will fill notes
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.draft_release.outputs.tag_name }}
+          name: ${{ needs.draft_release.outputs.release_name }}
+          body: ${{ needs.draft_release.outputs.body }}
+          draft: false # Ensure it's published (not a draft)
+          prerelease: false # Ensure it's not a pre-release
+          # generateReleaseNotes: false # We already have notes from release-drafter
