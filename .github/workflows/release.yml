@@ -4,6 +4,12 @@ on:
   push:
     branches: [ main ]
 
+# Define permissions for the GITHUB_TOKEN for all jobs in this workflow
+permissions:
+  contents: write       # Needed for checkout, pushing commits/tags (update_pom_and_tag), creating releases (publish_github_release)
+  pull-requests: read   # Needed for release-drafter to read PR labels and details
+  packages: write       # Needed for build_image job to push to Docker Hub/GHCR
+
 jobs:
   # ────────────────── 1  DETERMINE VERSION & DRAFT NOTES ───────────────────
   draft_release:
