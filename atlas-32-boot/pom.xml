@@ -69,8 +69,8 @@
         <version>3.4.4</version>
         <configuration>
           <image>
-            <name>${docker.image.prefix}/${docker.image.name}:${project.version}</name>
-            <builder>docker.io/paketobuildpacks/builder-jammy-base:latest</builder>
+            <name>${image.full.tag}</name>
+            <builder>docker.io/paketobuildpacks/builder-jammy-java-tiny:latest</builder>
           </image>
         </configuration>
         <executions>
