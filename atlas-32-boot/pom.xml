@@ -63,6 +63,24 @@
         <groupId>com.github.spotbugs</groupId>
         <artifactId>spotbugs-maven-plugin</artifactId>
       </plugin>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>3.4.4</version>
+        <configuration>
+          <image>
+            <name>${docker.image.prefix}/${docker.image.name}:${project.version}</name>
+            <builder>docker.io/paketobuildpacks/builder-jammy-base:latest</builder>
+            <platform>linux/amd64,linux/arm64</platform>
+          </image>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
