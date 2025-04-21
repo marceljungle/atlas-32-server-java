@@ -71,7 +71,6 @@
           <image>
             <name>${docker.image.prefix}/${docker.image.name}:${project.version}</name>
             <builder>docker.io/paketobuildpacks/builder-jammy-base:latest</builder>
-            <platform>linux/amd64,linux/arm64</platform>
           </image>
         </configuration>
         <executions>
