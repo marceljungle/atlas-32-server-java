@@ -10,7 +10,7 @@
   </parent>
   <groupId>gigi.dan2011.gmail.com</groupId>
   <artifactId>atlas-32</artifactId>
-  <version>0.2.1</version>
+  <version>0.2.2</version>
   <packaging>pom</packaging>
   <dependencyManagement>
     <dependencies>
