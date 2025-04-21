@@ -49,6 +49,8 @@
 
   <properties>
     <java.version>21</java.version>
+    <docker.image.prefix>marceljungle</docker.image.prefix>
+    <docker.image.name>atlas-32-server</docker.image.name>
   </properties>
 
   <organization>
