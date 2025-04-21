@@ -143,9 +143,8 @@ jobs:
           java-version: 21
           cache: 'maven'
 
-      - name: Build modules (once)
-        if: ${{ matrix.arch == 'amd64' }}
-        run: mvn -B -ntp -DskipTests install
+      - name: Build modules
+        run: mvn -B -ntp install -DskipTests
 
       - name: Build & push ${{ matrix.arch }} image
         env:
