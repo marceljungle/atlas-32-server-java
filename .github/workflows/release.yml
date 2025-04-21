@@ -175,7 +175,7 @@ jobs:
 
   # ──────────────── 3.1  CREATE MANIFEST ────────────────
   create_manifest:
-    needs: build_image
+    needs: [ build_image, update_pom_and_tag ]
     runs-on: ubuntu-latest
     steps:
       - name: Login to Docker Hub
