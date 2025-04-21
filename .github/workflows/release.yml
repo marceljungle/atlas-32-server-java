@@ -150,15 +150,15 @@ jobs:
         env:
           IMAGE_BASE: ${{ secrets.DOCKER_USER }}/atlas-32-server
           VERSION: ${{ needs.update_pom_and_tag.outputs.version }}
-          BUILDER: paketobuildpacks/builder-jammy-java-tiny
+          BUILDER: paketobuildpacks/builder-jammy-java-tiny   # multi‑arch
         run: |
           FULL_TAG=${IMAGE_BASE}:${VERSION}-${{ matrix.arch }}
           mvn -B -ntp -pl atlas-32-boot \
               -DskipTests \
               spring-boot:build-image \
+              -Dspring-boot.build-image.builder=${BUILDER} \
               -Dspring-boot.build-image.imagePlatform=linux/${{ matrix.arch }} \
               -Dspring-boot.build-image.imageName=${FULL_TAG}
-          echo "Pushing $FULL_TAG"
           docker push ${FULL_TAG}
 
   # ──────────────── 3.1  CREATE MANIFEST ────────────────
