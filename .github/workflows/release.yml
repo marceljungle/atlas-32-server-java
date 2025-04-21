@@ -130,6 +130,14 @@ jobs:
         arch: [ amd64, arm64 ]
 
     steps:
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Checkout at tag
         uses: actions/checkout@v4
         with:
@@ -152,12 +160,12 @@ jobs:
           VERSION: ${{ needs.update_pom_and_tag.outputs.version }}
         run: |
           FULL_TAG=${IMAGE_BASE}:${VERSION}-${{ matrix.arch }}
-          
           mvn -B -ntp -pl atlas-32-boot \
-          -DskipTests \
-          -Dimage.full.tag=${FULL_TAG} \
-          -Dspring-boot.build-image.imagePlatform=linux/${{ matrix.arch }} \
-          spring-boot:build-image
+              -DskipTests \
+              -Dimage.full.tag=${FULL_TAG} \
+              -Dspring-boot.build-image.imagePlatform=linux/${{ matrix.arch }} \
+              spring-boot:build-image
+          docker push ${FULL_TAG}
 
   # ──────────────── 3.1  CREATE MANIFEST ────────────────
   create_manifest:
