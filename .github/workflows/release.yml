@@ -196,22 +196,30 @@ jobs:
 
   # ────────────────────────── 4  PUBLISH GITHUB RELEASE ─────────────────────
   publish_github_release:
-    # Depends on the job that constructs the correct version/tag and the image build
     needs: [extract_and_construct_version, update_pom_and_tag, build_image]
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Required to publish/update the release
+      contents: write
     steps:
+      - name: Prepare fixed release notes
+        id: fix_notes
+        run: |
+          VERSION=${{ needs.extract_and_construct_version.outputs.version }}
+          # Leemos el body tal cual nos lo pasó release-drafter
+          BODY="${{ needs.extract_and_construct_version.outputs.body }}"
+          # Reemplazamos todas las ocurrencias de v$NEXT_VERSION
+          FIXED=$(echo "$BODY" | sed "s/v\\\$NEXT_VERSION/v$VERSION/g")
+          # Lo exponemos como output
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$FIXED"        >> $GITHUB_OUTPUT
+          echo "EOF"           >> $GITHUB_OUTPUT
+
       - name: Publish GitHub Release
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          # Use the correctly constructed tag and name
-          tag: ${{ needs.extract_and_construct_version.outputs.tag_name }}
+          tag:  ${{ needs.extract_and_construct_version.outputs.tag_name }}
           name: ${{ needs.extract_and_construct_version.outputs.release_name }}
-          # The body might still contain the unresolved v$NEXT_VERSION.
-          # We could fix it here with sed if important, or leave it as is.
-          body: ${{ needs.extract_and_construct_version.outputs.body }}
-          draft: false # Ensure it's published (not a draft)
-          prerelease: false # Ensure it's not a pre-release
-          # generateReleaseNotes: false # We already have notes from release-drafter
+          body: ${{ steps.fix_notes.outputs.body }}
+          draft: false
+          prerelease: false
