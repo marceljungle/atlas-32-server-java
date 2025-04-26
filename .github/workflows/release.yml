@@ -223,20 +223,21 @@ jobs:
           VERSION="${{ needs.extract_and_construct_version.outputs.version }}"
           # Get the body template from the intermediate job's output
           BODY_TEMPLATE="${{ needs.extract_and_construct_version.outputs.body_template }}"
-
+          
           echo "Original Body Template Received:"
           echo "$BODY_TEMPLATE"
           echo "-------------------------"
-
-          # Replace v$NEXT_VERSION literally, handling potential special characters in sed
-          # Note: Using different delimiters for sed '#' to avoid conflict if BODY_TEMPLATE contains '/'
-          # Also handling potential windows line endings (\r) just in case
-          FIXED_BODY=$(echo "$BODY_TEMPLATE" | sed -e 's/\r//g' -e "s#v\\\$NEXT_VERSION#v$VERSION#g")
-
-          echo "Fixed Body:"
+          
+          # Replace v$NEXT_VERSION literally using single quotes for sed script
+          # This prevents shell interpolation issues and escapes $ for sed
+          # Using '#' as delimiter to avoid conflict with '/' in URLs
+          FIXED_BODY=$(echo "$BODY_TEMPLATE" | sed 's#v\$NEXT_VERSION#v'"$VERSION"'#g')
+          
+          # ADD DEBUGGING: Print the result of the sed command
+          echo "Fixed Body After Sed:"
           echo "$FIXED_BODY"
           echo "-------------------------"
-
+          
           # Expose the fixed body as output using multiline syntax
           echo "body<<EOF" >> $GITHUB_OUTPUT
           echo "$FIXED_BODY" >> $GITHUB_OUTPUT
