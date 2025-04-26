@@ -97,7 +97,7 @@
   <parent>
     <groupId>gigi.dan2011.gmail.com</groupId>
     <artifactId>atlas-32</artifactId>
-    <version>0.2.3</version>
+    <version>0.2.4</version>
     <relativePath>..</relativePath>
   </parent>
 
