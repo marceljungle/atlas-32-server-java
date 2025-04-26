@@ -14,8 +14,12 @@ jobs:
   # ────────────────── 1  DETERMINE VERSION & DRAFT NOTES ───────────────────
   draft_release:
     runs-on: ubuntu-latest
+    # ADD JOB-LEVEL PERMISSIONS TO PREVENT DRAFT CREATION
+    permissions:
+      contents: read        # Needed to read repo contents (checkout, history)
+      pull-requests: read # Needed to read PRs for history/labels
     outputs:
-      # Pass the body and the resolved version (ignore tag_name and name from here)
+      # Pass the body template and the resolved version
       body: ${{ steps.release_drafter.outputs.body }}
       resolved_version: ${{ steps.release_drafter.outputs.resolved_version }} # Use this output which IS correct
     steps:
@@ -24,10 +28,12 @@ jobs:
         with:
           fetch-depth: 0 # Required for release-drafter to compare tags
 
-      - name: Draft next release notes and version
+      # This step should now hopefully only calculate and output, without creating a draft
+      - name: Calculate next release notes and version
         id: release_drafter
         uses: release-drafter/release-drafter@v6
         env:
+          # The token used by this step now has restricted permissions from the job level
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # (Optional) Keep debug step for verification if needed
@@ -36,6 +42,7 @@ jobs:
         run: |
           echo "Resolved Version output: >>>${{ steps.release_drafter.outputs.resolved_version }}<<<"
           echo "Tag Name output (potentially wrong): >>>${{ steps.release_drafter.outputs.tag_name }}<<<"
+          # echo "Body output: >>>${{ steps.release_drafter.outputs.body }}<<<" # Might be too long / cause issues
 
   # ────────────────── 1.5 EXTRACT & CONSTRUCT VERSION/TAG ─────────────────
   # New intermediate job to construct the correct tag
@@ -46,7 +53,7 @@ jobs:
       version: ${{ steps.versioner.outputs.version }}      # e.g., 0.2.0 (without v)
       tag_name: ${{ steps.versioner.outputs.tag_name }}    # e.g., v0.2.0 (with v)
       release_name: ${{ steps.versioner.outputs.tag_name }} # Use the constructed tag as name
-      body: ${{ needs.draft_release.outputs.body }}        # Pass the body (might still contain v$NEXT_VERSION)
+      body_template: ${{ needs.draft_release.outputs.body }}
     steps:
       - name: Construct version and tag from resolved_version
         id: versioner
@@ -63,13 +70,22 @@ jobs:
           TAG_NAME="v$RESOLVED_VERSION"
 
           # Set outputs
-          # version is without 'v' for Maven
           echo "version=$RESOLVED_VERSION" >> "$GITHUB_OUTPUT"
-          # tag_name includes 'v' for Git/GitHub Release
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
           echo "Constructed version: $RESOLVED_VERSION"
           echo "Constructed tag_name: $TAG_NAME"
+
+      # Also output the body template received from the previous job
+      - name: Output body template
+        id: body_out
+        run: |
+          # Need to handle potential multi-line body correctly for output
+          body_template="${{ needs.draft_release.outputs.body }}"
+          echo "body_template<<EOF" >> $GITHUB_OUTPUT
+          echo "$body_template" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
 
   # ────────────────── 2  UPDATE POM, COMMIT & TAG ──────────────────────────
   update_pom_and_tag:
@@ -123,59 +139,56 @@ jobs:
 
   # ──────────────── 3  BUILD & PUSH IMAGE PER ARCH ────────────────
   build_image:
+    # Depends on the tag being pushed successfully
     needs: [ extract_and_construct_version, update_pom_and_tag ]
     runs-on: ubuntu-latest
     strategy:
       matrix:
         arch: [ amd64, arm64 ]
-
     steps:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
           platforms: linux/arm64
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Checkout at tag
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.update_pom_and_tag.outputs.tag_name }}
           fetch-depth: 0
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
           cache: 'maven'
-
-      - name: Build modules
-        run: mvn -B -ntp install -DskipTests
-
+      - name: Build and Install all modules locally
+        run: mvn install -B -ntp -DskipTests
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
       - name: Build & push ${{ matrix.arch }} image
         env:
           IMAGE_BASE: ${{ secrets.DOCKER_USER }}/atlas-32-server
           VERSION: ${{ needs.update_pom_and_tag.outputs.version }}
+          # Set BP_PLATFORMS env var for buildpacks
+          BP_PLATFORMS: linux/${{ matrix.arch }}
         run: |
           FULL_TAG=${IMAGE_BASE}:${VERSION}-${{ matrix.arch }}
+          echo "Building image ${FULL_TAG} for platform ${BP_PLATFORMS}"
+          # Use BP_PLATFORMS env var instead of -D property
           mvn -B -ntp -pl atlas-32-boot \
               -DskipTests \
-              -Dimage.full.tag=${FULL_TAG} \
-              -Dspring-boot.build-image.imagePlatform=linux/${{ matrix.arch }} \
-              spring-boot:build-image
+              spring-boot:build-image \
+              -Dspring-boot.build-image.imageName=${FULL_TAG}
           docker push ${FULL_TAG}
 
   # ──────────────── 3.1  CREATE MANIFEST ────────────────
   create_manifest:
-    needs: [ build_image, update_pom_and_tag ]
+    needs: [ build_image, update_pom_and_tag ] # Depends on both arch images being pushed
     runs-on: ubuntu-latest
     steps:
       - name: Login to Docker Hub
@@ -183,43 +196,61 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Create and push multi‑arch manifest
+      - name: Create and push multi-arch manifest
         env:
           IMAGE_BASE: ${{ secrets.DOCKER_USER }}/atlas-32-server
           VERSION: ${{ needs.update_pom_and_tag.outputs.version }}
         run: |
+          echo "Creating manifest for ${IMAGE_BASE}:${VERSION}"
           docker manifest create ${IMAGE_BASE}:${VERSION} \
             --amend ${IMAGE_BASE}:${VERSION}-amd64 \
             --amend ${IMAGE_BASE}:${VERSION}-arm64
+          echo "Pushing manifest ${IMAGE_BASE}:${VERSION}"
           docker manifest push ${IMAGE_BASE}:${VERSION}
 
   # ────────────────────────── 4  PUBLISH GITHUB RELEASE ─────────────────────
   publish_github_release:
-    needs: [extract_and_construct_version, update_pom_and_tag, build_image]
+    # Depend on the manifest being created successfully
+    needs: [extract_and_construct_version, update_pom_and_tag, create_manifest]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    # Permissions are inherited from top-level
     steps:
+      # This step might still be needed because release-drafter body output contains v$NEXT_VERSION
       - name: Prepare fixed release notes
         id: fix_notes
         run: |
-          VERSION=${{ needs.extract_and_construct_version.outputs.version }}
-          # Leemos el body tal cual nos lo pasó release-drafter
-          BODY="${{ needs.extract_and_construct_version.outputs.body }}"
-          # Reemplazamos todas las ocurrencias de v$NEXT_VERSION
-          FIXED=$(echo "$BODY" | sed "s/v\\\$NEXT_VERSION/v$VERSION/g")
-          # Lo exponemos como output
+          # Use the correct constructed version for replacement
+          VERSION="${{ needs.extract_and_construct_version.outputs.version }}"
+          # Get the body template from the intermediate job's output
+          BODY_TEMPLATE="${{ needs.extract_and_construct_version.outputs.body_template }}"
+
+          echo "Original Body Template Received:"
+          echo "$BODY_TEMPLATE"
+          echo "-------------------------"
+
+          # Replace v$NEXT_VERSION literally, handling potential special characters in sed
+          # Note: Using different delimiters for sed '#' to avoid conflict if BODY_TEMPLATE contains '/'
+          # Also handling potential windows line endings (\r) just in case
+          FIXED_BODY=$(echo "$BODY_TEMPLATE" | sed -e 's/\r//g' -e "s#v\\\$NEXT_VERSION#v$VERSION#g")
+
+          echo "Fixed Body:"
+          echo "$FIXED_BODY"
+          echo "-------------------------"
+
+          # Expose the fixed body as output using multiline syntax
           echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "$FIXED"        >> $GITHUB_OUTPUT
-          echo "EOF"           >> $GITHUB_OUTPUT
+          echo "$FIXED_BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Publish GitHub Release
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag:  ${{ needs.extract_and_construct_version.outputs.tag_name }}
+          # Use the correctly constructed tag and name
+          tag: ${{ needs.extract_and_construct_version.outputs.tag_name }}
           name: ${{ needs.extract_and_construct_version.outputs.release_name }}
+          # Use the fixed body from the previous step
           body: ${{ steps.fix_notes.outputs.body }}
           draft: false
           prerelease: false
+          # makeLatest: true # Default is true, should mark as latest if no draft conflicts
