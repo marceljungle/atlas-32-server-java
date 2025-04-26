@@ -29,9 +29,6 @@ public class ApiKeyService {
     this.userRepository = userRepository;
   }
 
-  /**
-   * Crea una nueva ApiKey cifrada y la asocia al usuario (One-to-One).
-   */
   public ApiKeyEntity createApiKeyForUser(Long userId, String name, String rawApiKey,
       String passphrase)
       throws Exception {
@@ -56,7 +53,7 @@ public class ApiKeyService {
     UserEntity user = userRepository.findById(userId)
         .orElseThrow(() -> new RuntimeException("User not found"));
 
-    user.withApiKey(entity);
+    user = user.withApiKey(entity);
     userRepository.save(user);
 
     return entity;
