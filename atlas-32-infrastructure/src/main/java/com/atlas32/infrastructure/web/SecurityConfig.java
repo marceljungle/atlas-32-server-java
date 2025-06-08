@@ -17,8 +17,14 @@ public class SecurityConfig {
 
     http
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers("/register", "/login", "/css/**", "/js/**").permitAll()
+            .requestMatchers(
+                "/register", "/login", "/css/**", "/js/**"
+            ).permitAll()
+            .requestMatchers("/api/**").authenticated()
             .anyRequest().authenticated()
+        )
+        .csrf(csrf -> csrf
+            .ignoringRequestMatchers("/api/**")
         )
         .formLogin(login -> login
             .loginPage("/login")
