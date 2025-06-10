@@ -25,4 +25,9 @@ mqtt:
 
 logging:
   level:
-    root: INFO
+    org.springframework.integration.mqtt:
+      outbound:
+        MqttPahoMessageHandler: OFF
+      inbound:
+        MqttPahoMessageDrivenChannelAdapter: OFF
+    root: ERROR

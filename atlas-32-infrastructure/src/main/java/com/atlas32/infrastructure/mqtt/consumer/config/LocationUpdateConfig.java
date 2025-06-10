@@ -1,11 +1,13 @@
 package com.atlas32.infrastructure.mqtt.consumer.config;
 
+import org.eclipse.paho.client.mqttv3.IMqttAsyncClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.core.MessageProducer;
-import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
+import org.springframework.integration.mqtt.core.ClientManager;
 import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter;
 import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
 import org.springframework.messaging.MessageChannel;
@@ -32,13 +34,12 @@ public class LocationUpdateConfig {
    * MqttPahoMessageDrivenChannelAdapter that "listens" to the MQTT broker for the specified topic.
    */
   @Bean
-  public MessageProducer locationUpdateInbound(MqttPahoClientFactory mqttClientFactory) {
+  public MessageProducer locationUpdateInbound(
+      ClientManager<IMqttAsyncClient, MqttConnectOptions> clientManager) {
+
     MqttPahoMessageDrivenChannelAdapter adapter =
-        new MqttPahoMessageDrivenChannelAdapter(
-            baseClientId,
-            mqttClientFactory,
-            this.mqttLocationSubscribeTopic
-        );
+        new MqttPahoMessageDrivenChannelAdapter(clientManager, this.mqttLocationSubscribeTopic);
+
     adapter.setConverter(new DefaultPahoMessageConverter());
     adapter.setQos(qos);
     adapter.setOutputChannel(locationUpdateChannel());
