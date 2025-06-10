@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
+import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter;
 import org.springframework.integration.mqtt.outbound.MqttPahoMessageHandler;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageHandler;
@@ -15,9 +16,6 @@ public class CommandOutboundConfig {
 
   @Value("${mqtt.topic.command.publish}")
   private String mqttCommandPublishTopic;
-
-  @Value("${mqtt.client.id}")
-  private String baseClientId;
 
   @Value("${mqtt.qos:1}")
   private int qos;
@@ -29,10 +27,11 @@ public class CommandOutboundConfig {
 
   @Bean
   @ServiceActivator(inputChannel = "commandOutboundChannel")
-  public MessageHandler commandOutboundMessageHandler(MqttPahoClientFactory mqttClientFactory) {
+  public MessageHandler commandOutboundMessageHandler(MqttPahoClientFactory mqttClientFactory,
+      String mqttClientId) {
     MqttPahoMessageHandler messageHandler =
         new MqttPahoMessageHandler(
-            baseClientId,
+            mqttClientId,
             mqttClientFactory);
     messageHandler.setAsync(true);
     messageHandler.setDefaultTopic(this.mqttCommandPublishTopic);
