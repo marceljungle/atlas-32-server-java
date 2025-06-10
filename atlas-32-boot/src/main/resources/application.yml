@@ -25,4 +25,4 @@ mqtt:
 
 logging:
   level:
-    root: ERROR
+    root: INFO

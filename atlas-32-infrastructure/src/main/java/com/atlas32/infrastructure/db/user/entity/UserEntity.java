@@ -52,6 +52,7 @@ public class UserEntity {
         .username(this.username)
         .password(this.password)
         .role(this.role)
+        .devices(this.devices)
         .build();
   }
 }
