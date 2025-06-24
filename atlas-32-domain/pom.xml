@@ -30,7 +30,7 @@
   <parent>
     <groupId>gigi.dan2011.gmail.com</groupId>
     <artifactId>atlas-32</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
     <relativePath>..</relativePath>
   </parent>
 
