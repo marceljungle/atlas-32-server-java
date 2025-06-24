@@ -5,9 +5,10 @@
 
 <div layout:fragment="content">
 
+  <link rel="stylesheet" th:href="@{/css/map-styles.css}">
+
   <h1>Your devices on the map</h1>
 
-  <!-- no key / bad passphrase -->
   <div th:if="${googleMapsApiKey} == 'NO_KEY_CONFIGURED'">
     <div class="alert alert-warning">
       No Google Maps API key configured or decrypted.<br/>
@@ -22,104 +23,53 @@
     </div>
   </div>
 
-  <!-- key present -->
   <div th:if="(${googleMapsApiKey} != 'NO_KEY_CONFIGURED') and (${googleMapsApiKey} != 'INVALID_PASSPHRASE')">
 
-    <!-- MAIN MAP -->
     <div id="map" style="width:100%;height:500px" class="mb-4"></div>
 
-    <!-- DEVICE LIST with bootstrap cards -->
-    <div class="row" th:each="d : ${devices}">
-      <div class="col-md-4 mb-3">
+    <div class="row">
+      <div class="col-md-4 mb-3" th:each="d : ${devices}">
         <div class="card">
           <div class="card-body">
             <h5 class="card-title" th:text="${d.name}">Device</h5>
             <p class="card-text">
               MQTT ID: <span th:text="${d.mqttDeviceId}"></span>
             </p>
-            <button class="btn btn-primary btn-request"
-                    th:data-id="${d.mqttDeviceId}">
-              Request coordinates
-            </button>
+
+            <div class="d-flex align-items-center">
+              <button class="btn btn-primary btn-request"
+                      th:data-id="${d.mqttDeviceId}">
+                Request coordinates
+              </button>
+
+              <div class="form-check form-switch form-switch-lg ms-4">
+                <input class="form-check-input live-switch"
+                       type="checkbox"
+                       role="switch"
+                       th:id="'liveSwitch-' + ${d.mqttDeviceId}"
+                       th:data-id="${d.mqttDeviceId}">
+                <label class="form-check-label ms-2" th:for="'liveSwitch-' + ${d.mqttDeviceId}">Live</label>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- JS -->
-    <script th:inline="javascript">
-      /*<![CDATA[*/
-      const apiKey  = /*[[${googleMapsApiKey}]]*/ 'XYZ';
+    <script th:src="@{/js/map-logic.js}" defer></script>
 
-      /* DeviceDto[]  ->  [{name:"Tracker 1", mqttDeviceId:"d1"}, …]           */
+    <script th:inline="javascript" defer>
+      /*<![CDATA[*/
+      // Define variables that map-logic.js will use.
+      const apiKey  = /*[[${googleMapsApiKey}]]*/ 'XYZ';
       const devices = /*[[${devices}]]*/ [];
 
-      let map;
-      const markers   = {};           // mqttId -> google.maps.Marker
-      const infoWins  = {};           // mqttId -> google.maps.InfoWindow
-
-      function initMap() {
-
-        map = new google.maps.Map(document.getElementById("map"), {
-          center: {lat: 40.4167, lng: -3.7033},   // default centre
-          zoom: 5
-        });
-
-        /* 1 marker per device, labelled with its name                  */
-        devices.forEach(d => {
-          const marker = new google.maps.Marker({
-            position: {lat: 40.4167, lng: -3.7033},   // temp position
-            map: map,
-            label: {
-              text: d.name,                         // label under/over pin
-              fontSize: '12px',
-              fontWeight: 'bold'
-            },
-            title: d.name
-          });
-          const iw = new google.maps.InfoWindow({content: `<strong>${d.name}</strong>`});
-          marker.addListener("click", () => iw.open({anchor: marker, map, shouldFocus:false}));
-
-          markers[d.mqttDeviceId] = marker;
-          infoWins[d.mqttDeviceId] = iw;
-        });
-
-        updateAllLocations();          // first fetch now
-        setInterval(updateAllLocations, 5000);   // …then every 5 s
-      }
-
-      function updateAllLocations() {
-        devices.forEach(d => {
-          fetch(`/api/device/${d.mqttDeviceId}/location`)
-          .then(r => r.ok ? r.json() : null)
-          .then(data => {
-            if (data && data.latitude && data.longitude) {
-              const pos = {lat: data.latitude, lng: data.longitude};
-              markers[d.mqttDeviceId].setPosition(pos);
-            }
-          });
-        });
-      }
-
-      /* “Request coords” button stays unchanged */
-      document.addEventListener("DOMContentLoaded", () => {
-        document.querySelectorAll(".btn-request").forEach(btn => {
-          btn.addEventListener("click", e => {
-            const id = e.target.dataset.id;
-            fetch(`/api/device/${id}/request-coords`, {method:"POST"});
-          });
-        });
-      });
+      // Now that we have the API Key, we build the URL and load the Google script.
+      // The Google script will call initMap(), which was already defined in map-logic.js.
+      const googleApiScript = document.createElement("script");
+      googleApiScript.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=initMap`;
+      document.head.appendChild(googleApiScript);
       /*]]>*/
-    </script>
-
-    <!-- load Google Maps once -->
-    <script th:inline="javascript">
-      const s = document.createElement("script");
-      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(apiKey)
-          + "&callback=initMap";
-      s.async = true; s.defer = true;
-      document.head.appendChild(s);
     </script>
   </div>
 
