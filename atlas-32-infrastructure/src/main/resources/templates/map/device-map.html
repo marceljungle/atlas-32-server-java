@@ -5,20 +5,7 @@
 
 <div layout:fragment="content">
 
-  <style>
-    /* Makes Bootstrap's form-switch larger and aligns it correctly */
-    .form-switch-lg {
-      font-size: 1.25rem;
-      display: inline-flex;
-      align-items: center;
-    }
-    .form-switch-lg .form-check-input {
-      width: 2.5em;
-      height: 1.25em;
-      margin-top: 0;
-      margin-left: -2.5em;
-    }
-  </style>
+  <link rel="stylesheet" th:href="@{/css/map-styles.css}">
 
   <h1>Your devices on the map</h1>
 
@@ -69,116 +56,20 @@
       </div>
     </div>
 
-    <script th:inline="javascript">
+    <script th:src="@{/js/map-logic.js}" defer></script>
+
+    <script th:inline="javascript" defer>
       /*<![CDATA[*/
+      // Define variables that map-logic.js will use.
       const apiKey  = /*[[${googleMapsApiKey}]]*/ 'XYZ';
       const devices = /*[[${devices}]]*/ [];
 
-      let map;
-      const markers   = {};
-      const infoWins  = {};
-
-      function initMap() {
-        map = new google.maps.Map(document.getElementById("map"), {
-          center: {lat: 40.4167, lng: -3.7033},
-          zoom: 5
-        });
-
-        devices.forEach(d => {
-          const marker = new google.maps.Marker({
-            position: {lat: 40.4167, lng: -3.7033},
-            map: map,
-            label: {
-              text: d.name,
-              fontSize: '12px',
-              fontWeight: 'bold'
-            },
-            title: d.name
-          });
-          const iw = new google.maps.InfoWindow({content: `<strong>${d.name}</strong>`});
-          marker.addListener("click", () => iw.open({anchor: marker, map, shouldFocus:false}));
-
-          markers[d.mqttDeviceId] = marker;
-          infoWins[d.mqttDeviceId] = iw;
-        });
-
-        updateAllLocations();
-        setInterval(updateAllLocations, 5000);
-      }
-
-      function updateAllLocations() {
-        devices.forEach(d => {
-          fetch(`/api/device/${d.mqttDeviceId}/location`)
-          .then(r => r.ok ? r.json() : null)
-          .then(data => {
-            if (data && data.latitude && data.longitude) {
-              const pos = {lat: data.latitude, lng: data.longitude};
-              markers[d.mqttDeviceId].setPosition(pos);
-            }
-          });
-        });
-      }
-
-      /**
-       * Sends a command to a specific device via POST request.
-       * @param {string} deviceId - The MQTT ID of the device.
-       * @param {string} command - The command string to send in the request body.
-       * @param {HTMLElement|null} element - The interactive element (e.g., a switch) to revert on API failure.
-       */
-      function sendCommandToDevice(deviceId, command, element = null) {
-        const apiUrl = `/api/device/${deviceId}/command`;
-        const requestBody = { command: command };
-
-        console.log(`Sending command to ${deviceId}:`, requestBody);
-
-        fetch(apiUrl, {
-          method: "POST",
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestBody)
-        })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`API responded with status ${response.status}`);
-          }
-          console.log(`Command '${command}' sent successfully to ${deviceId}.`);
-        })
-        .catch(error => {
-          console.error(`Error sending command '${command}' to device ${deviceId}:`, error);
-          if (element && element.type === 'checkbox') {
-            console.warn(`Reverting switch state for ${deviceId}.`);
-            element.checked = !element.checked;
-          }
-        });
-      }
-
-      document.addEventListener("DOMContentLoaded", () => {
-        document.querySelectorAll(".btn-request").forEach(btn => {
-          btn.addEventListener("click", e => {
-            const deviceId = e.target.dataset.id;
-            sendCommandToDevice(deviceId, "GET_COORDINATES");
-          });
-        });
-
-        document.querySelectorAll(".live-switch").forEach(liveSwitch => {
-          liveSwitch.addEventListener("change", e => {
-            const deviceId = e.target.dataset.id;
-            const isEnabled = e.target.checked;
-            const command = isEnabled ? "LIVE_ON" : "LIVE_OFF";
-            sendCommandToDevice(deviceId, command, e.target);
-          });
-        });
-      });
+      // Now that we have the API Key, we build the URL and load the Google script.
+      // The Google script will call initMap(), which was already defined in map-logic.js.
+      const googleApiScript = document.createElement("script");
+      googleApiScript.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&callback=initMap`;
+      document.head.appendChild(googleApiScript);
       /*]]>*/
-    </script>
-
-    <script th:inline="javascript">
-      const s = document.createElement("script");
-      s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(apiKey)
-          + "&callback=initMap";
-      s.async = true; s.defer = true;
-      document.head.appendChild(s);
     </script>
   </div>
 
