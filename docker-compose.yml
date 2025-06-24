@@ -10,6 +10,8 @@ services:
     image: postgres:15
     container_name: atlas32-postgres
     restart: unless-stopped
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: atlas32
       POSTGRES_USER: admin
@@ -22,7 +24,7 @@ services:
       timeout: 5s
       retries: 5
   atlas-server:
-    image: marceljungle/atlas-32-server:0.3.0
+    image: marceljungle/atlas-32-server:0.4.0
     ports: ["4046:4046"]
     depends_on:
       postgres:

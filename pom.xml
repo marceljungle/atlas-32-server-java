@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.4.4</version>
+    <version>3.5.0</version>
     <relativePath/>
   </parent>
   <groupId>gigi.dan2011.gmail.com</groupId>
   <artifactId>atlas-32</artifactId>
-  <version>0.2.5</version>
+  <version>0.4.0</version>
   <packaging>pom</packaging>
   <dependencyManagement>
     <dependencies>
@@ -34,9 +34,15 @@
         <artifactId>atlas-32-infrastructure</artifactId>
         <version>${project.version}</version>
       </dependency>
+
+      <dependency>
+        <groupId>org.eclipse.paho</groupId>
+        <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+        <version>1.2.5</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
-  <description>Library for music</description>
+  <description>Tracker device server and broker</description>
 
   <inceptionYear>2022</inceptionYear>
   <modules>
