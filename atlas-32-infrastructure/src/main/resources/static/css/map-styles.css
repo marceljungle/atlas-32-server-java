@@ -1,0 +1,11 @@
+.form-switch-lg {
+  font-size: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+}
+.form-switch-lg .form-check-input {
+  width: 2.5em;
+  height: 1.25em;
+  margin-top: 0;
+  margin-left: -2.5em;
+}

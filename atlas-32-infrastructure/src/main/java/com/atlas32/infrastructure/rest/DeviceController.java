@@ -5,11 +5,13 @@ import com.atlas32.domain.atlas.command.CommandType;
 import com.atlas32.domain.atlas.device.Device;
 import com.atlas32.domain.atlas.location.Location;
 import com.atlas32.infrastructure.location.DeviceLocationService;
+import com.atlas32.infrastructure.rest.dto.CommandRequest;
 import com.atlas32.usecase.atlas.SendCommandToDevice;
 import com.atlas32.usecase.atlas.params.CommandToDeviceParams;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,11 +32,11 @@ public class DeviceController {
   /**
    * POST /api/device/{deviceId}/request-coords.
    */
-  @PostMapping("/{deviceId}/request-coords")
-  public void requestCoords(@PathVariable String deviceId) {
+  @PostMapping("/{deviceId}/command")
+  public void commandRequest(@PathVariable String deviceId, @RequestBody CommandRequest request) {
     CommandToDeviceParams params = CommandToDeviceParams.builder()
         .withCommand(
-            new Command(new Device(deviceId), CommandType.GET_COORDINATES, null))
+            new Command(new Device(deviceId), CommandType.fromString(request.getCommand()), null))
         .build();
     sendCommandToDevice.execute(params);
   }

@@ -24,7 +24,7 @@ services:
       timeout: 5s
       retries: 5
   atlas-server:
-    image: marceljungle/atlas-32-server:0.2.6
+    image: marceljungle/atlas-32-server:0.4.0
     ports: ["4046:4046"]
     depends_on:
       postgres:
