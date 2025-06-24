@@ -5,9 +5,23 @@
 
 <div layout:fragment="content">
 
+  <style>
+    /* Makes Bootstrap's form-switch larger and aligns it correctly */
+    .form-switch-lg {
+      font-size: 1.25rem;
+      display: inline-flex;
+      align-items: center;
+    }
+    .form-switch-lg .form-check-input {
+      width: 2.5em;
+      height: 1.25em;
+      margin-top: 0;
+      margin-left: -2.5em;
+    }
+  </style>
+
   <h1>Your devices on the map</h1>
 
-  <!-- no key / bad passphrase -->
   <div th:if="${googleMapsApiKey} == 'NO_KEY_CONFIGURED'">
     <div class="alert alert-warning">
       No Google Maps API key configured or decrypted.<br/>
@@ -22,56 +36,60 @@
     </div>
   </div>
 
-  <!-- key present -->
   <div th:if="(${googleMapsApiKey} != 'NO_KEY_CONFIGURED') and (${googleMapsApiKey} != 'INVALID_PASSPHRASE')">
 
-    <!-- MAIN MAP -->
     <div id="map" style="width:100%;height:500px" class="mb-4"></div>
 
-    <!-- DEVICE LIST with bootstrap cards -->
-    <div class="row" th:each="d : ${devices}">
-      <div class="col-md-4 mb-3">
+    <div class="row">
+      <div class="col-md-4 mb-3" th:each="d : ${devices}">
         <div class="card">
           <div class="card-body">
             <h5 class="card-title" th:text="${d.name}">Device</h5>
             <p class="card-text">
               MQTT ID: <span th:text="${d.mqttDeviceId}"></span>
             </p>
-            <button class="btn btn-primary btn-request"
-                    th:data-id="${d.mqttDeviceId}">
-              Request coordinates
-            </button>
+
+            <div class="d-flex align-items-center">
+              <button class="btn btn-primary btn-request"
+                      th:data-id="${d.mqttDeviceId}">
+                Request coordinates
+              </button>
+
+              <div class="form-check form-switch form-switch-lg ms-4">
+                <input class="form-check-input live-switch"
+                       type="checkbox"
+                       role="switch"
+                       th:id="'liveSwitch-' + ${d.mqttDeviceId}"
+                       th:data-id="${d.mqttDeviceId}">
+                <label class="form-check-label ms-2" th:for="'liveSwitch-' + ${d.mqttDeviceId}">Live</label>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- JS -->
     <script th:inline="javascript">
       /*<![CDATA[*/
       const apiKey  = /*[[${googleMapsApiKey}]]*/ 'XYZ';
-
-      /* DeviceDto[]  ->  [{name:"Tracker 1", mqttDeviceId:"d1"}, …]           */
       const devices = /*[[${devices}]]*/ [];
 
       let map;
-      const markers   = {};           // mqttId -> google.maps.Marker
-      const infoWins  = {};           // mqttId -> google.maps.InfoWindow
+      const markers   = {};
+      const infoWins  = {};
 
       function initMap() {
-
         map = new google.maps.Map(document.getElementById("map"), {
-          center: {lat: 40.4167, lng: -3.7033},   // default centre
+          center: {lat: 40.4167, lng: -3.7033},
           zoom: 5
         });
 
-        /* 1 marker per device, labelled with its name                  */
         devices.forEach(d => {
           const marker = new google.maps.Marker({
-            position: {lat: 40.4167, lng: -3.7033},   // temp position
+            position: {lat: 40.4167, lng: -3.7033},
             map: map,
             label: {
-              text: d.name,                         // label under/over pin
+              text: d.name,
               fontSize: '12px',
               fontWeight: 'bold'
             },
@@ -84,8 +102,8 @@
           infoWins[d.mqttDeviceId] = iw;
         });
 
-        updateAllLocations();          // first fetch now
-        setInterval(updateAllLocations, 5000);   // …then every 5 s
+        updateAllLocations();
+        setInterval(updateAllLocations, 5000);
       }
 
       function updateAllLocations() {
@@ -101,19 +119,60 @@
         });
       }
 
-      /* “Request coords” button stays unchanged */
+      /**
+       * Sends a command to a specific device via POST request.
+       * @param {string} deviceId - The MQTT ID of the device.
+       * @param {string} command - The command string to send in the request body.
+       * @param {HTMLElement|null} element - The interactive element (e.g., a switch) to revert on API failure.
+       */
+      function sendCommandToDevice(deviceId, command, element = null) {
+        const apiUrl = `/api/device/${deviceId}/command`;
+        const requestBody = { command: command };
+
+        console.log(`Sending command to ${deviceId}:`, requestBody);
+
+        fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`API responded with status ${response.status}`);
+          }
+          console.log(`Command '${command}' sent successfully to ${deviceId}.`);
+        })
+        .catch(error => {
+          console.error(`Error sending command '${command}' to device ${deviceId}:`, error);
+          if (element && element.type === 'checkbox') {
+            console.warn(`Reverting switch state for ${deviceId}.`);
+            element.checked = !element.checked;
+          }
+        });
+      }
+
       document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll(".btn-request").forEach(btn => {
           btn.addEventListener("click", e => {
-            const id = e.target.dataset.id;
-            fetch(`/api/device/${id}/request-coords`, {method:"POST"});
+            const deviceId = e.target.dataset.id;
+            sendCommandToDevice(deviceId, "GET_COORDINATES");
+          });
+        });
+
+        document.querySelectorAll(".live-switch").forEach(liveSwitch => {
+          liveSwitch.addEventListener("change", e => {
+            const deviceId = e.target.dataset.id;
+            const isEnabled = e.target.checked;
+            const command = isEnabled ? "LIVE_ON" : "LIVE_OFF";
+            sendCommandToDevice(deviceId, command, e.target);
           });
         });
       });
       /*]]>*/
     </script>
 
-    <!-- load Google Maps once -->
     <script th:inline="javascript">
       const s = document.createElement("script");
       s.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(apiKey)
